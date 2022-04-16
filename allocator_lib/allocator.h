@@ -2,70 +2,84 @@
 #define ALLOCATOR_ALLOCATOR_ALLOCATOR_H_
 
 #include <iostream>
+#include <memory>
+
+class CustomAllocatorObject {
+ public:
+  using size_type = std::size_t;
+
+ public:
+  void *allocate(size_type size) {
+	if (auto ptr = malloc(size)) {
+	  std::cout << this << " allocate " << ptr << '\n';
+	  return ptr;
+	}
+
+	throw std::bad_alloc();
+  }
+
+  void deallocate(void *ptr) {
+	std::cout << this << " deallocate " << ptr << '\n';
+	free(ptr);
+  }
+};
 
 template<typename T>
 class CustomAllocator {
- public:
+  template<typename U>
+  friend
+  class CustomAllocator;
 
+ public:
   using value_type = T;
   using pointer = T *;
   using const_pointer = const T *;
   using reference = T &;
   using const_reference = const T &;
   using size_type = std::size_t;
-  using is_always_equal = std::true_type;
+  using is_always_equal = std::false_type;
+  using propagate_on_container_copy_assignment = std::true_type;
+  using propagate_on_container_move_assignment = std::true_type;
+  using propagate_on_container_swap = std::true_type;
 
-  CustomAllocator() {
-	std::cout << this << " constructor sizeof(T): " << sizeof(T) << '\n';
+ public:
+  CustomAllocator() : m_allocator_{std::make_shared<CustomAllocatorObject>()} {
+	std::cout << this << " constructor, sizeof(T): " << sizeof(T) << '\n';
   }
 
   template<typename U>
-  CustomAllocator(const CustomAllocator<U> &other) noexcept {
-	(void)other;
+  CustomAllocator(const CustomAllocator<U> &other) noexcept : m_allocator_{other.m_allocator_} {
+	std::cout << this << " copy constructor (U), sizeof(T): " << sizeof(T) << '\n';
   }
 
-  CustomAllocator(CustomAllocator &&other) noexcept {
-	(void)other;
+  CustomAllocator(CustomAllocator &&other) noexcept: m_allocator_{std::move(other.m_allocator_)} {
 	std::cout << this << " move constructor, sizeof(T): " << sizeof(T) << '\n';
   }
 
   CustomAllocator &operator=(CustomAllocator &&other) noexcept {
-	(void)other;
 	std::cout << this << " move assignment, sizeof(T): " << sizeof(T) << '\n';
+	m_allocator_ = std::move(other.m_allocator_);
 	return *this;
   }
 
-  CustomAllocator(const CustomAllocator &other) noexcept {
-	(void)other;
+  CustomAllocator(const CustomAllocator &other) noexcept: m_allocator_{other.m_allocator_} {
 	std::cout << this << " copy constructor, sizeof(T): " << sizeof(T) << '\n';
   }
 
   CustomAllocator &operator=(const CustomAllocator &other) noexcept {
-	(void)other;
 	std::cout << this << " copy assignment, sizeof(T): " << sizeof(T) << '\n';
+	m_allocator_ = other.m_allocator_;
 	return *this;
   }
 
-//  template<typename U>
-//  struct rebind {
-//	using other = CustomAllocator<U>;
-//  };
-
   pointer allocate(size_type n) const {
-	if (auto ptr = std::malloc(n * sizeof(T))) {
-	  std::cout << this << " allocate [" << n << "]: " << ptr << '\n';
-	  return reinterpret_cast<pointer>(ptr);
-	}
-
-	throw std::bad_alloc();
+	auto ptr = m_allocator_->allocate(sizeof(T) * n);
+	return reinterpret_cast<pointer>(ptr);
   }
 
   void deallocate(pointer ptr, size_type n) const {
-	std::cout << this << " deallocate [" << n << "]: " << ptr << '\n';
-
 	(void)n;
-
-	return std::free(ptr);
+	return m_allocator_->deallocate(ptr);
   }
 
   template<typename U, typename ...Args>
@@ -80,16 +94,25 @@ class CustomAllocator {
 
 	ptr->~T();
   }
+
+ private:
+  template<typename T1, typename T2>
+  friend bool operator==(const CustomAllocator<T1> &lhs, const CustomAllocator<T2> &rhs);
+
+  template<typename T1, typename T2>
+  friend bool operator!=(const CustomAllocator<T1> &lhs, const CustomAllocator<T2> &rhs);
+
+  std::shared_ptr<CustomAllocatorObject> m_allocator_;
 };
 
 template<typename T1, typename T2>
-bool operator==(const CustomAllocator<T1> &, const CustomAllocator<T2> &) {
-  return true;
+bool operator==(const CustomAllocator<T1> &lhs, const CustomAllocator<T2> &rhs) {
+  return lhs.m_allocator_ == rhs.m_allocator_;
 }
 
 template<typename T1, typename T2>
-bool operator!=(const CustomAllocator<T1> &, const CustomAllocator<T2> &) {
-  return false;
+bool operator!=(const CustomAllocator<T1> &lhs, const CustomAllocator<T2> &rhs) {
+  return lhs.m_allocator_ != rhs.m_allocator_;
 }
 
 #endif //ALLOCATOR_ALLOCATOR_ALLOCATOR_H_
