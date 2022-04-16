@@ -11,6 +11,6 @@ add_executable(tests main.cpp allocator_tests.h)
 
 target_include_directories(tests PRIVATE ${CMAKE_SOURCE_DIR}/allocator ${GTEST_INCLUDE_DIRS})
 
-target_link_libraries(tests PRIVATE allocator gtest gtest_main Threads::Threads)
+target_link_libraries(tests PRIVATE allocator_lib gtest gtest_main Threads::Threads)
 
 gtest_discover_tests(tests)

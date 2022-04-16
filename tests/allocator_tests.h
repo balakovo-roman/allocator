@@ -3,6 +3,6 @@
 
 #include <gtest/gtest.h>
 
-#include "allocator.h.h"
+#include "allocator.h"
 
 #endif //ALLOCATOR_TESTS_ALLOCATOR_TESTS_H_
