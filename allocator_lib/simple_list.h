@@ -71,6 +71,89 @@ class SimpleList {
   using const_pointer = const T *;
 
   SimpleList() = default;
+
+  SimpleList(const SimpleList &other)
+	  : node_allocator_{NodeTraits::select_on_container_copy_construction(other.node_allocator_)} {
+	auto node = other.head_;
+	while (node) {
+	  EmplaceFront(node->data_);
+	  node = node->next_;
+	}
+  }
+
+  SimpleList(const SimpleList &other, const Allocator &other_alloc)
+	  : node_allocator_{NodeAllocator(other_alloc)} {
+	auto node = other.head_;
+	while (node) {
+	  EmplaceFront(node->data_);
+	  node = node->next_;
+	}
+  }
+
+  SimpleList(SimpleList &&other) noexcept
+	  : node_allocator_{std::move(other.node_allocator_)},
+		head_{std::exchange(other.head_, nullptr)} {
+  }
+
+  SimpleList(SimpleList &&other, const Allocator &other_alloc) noexcept
+	  : node_allocator_(NodeAllocator(other_alloc)),
+		head_(std::exchange(other.head_, nullptr)) {}
+
+  SimpleList &operator=(const SimpleList &other) {
+	if (this != std::addressof(other)) {
+	  constexpr bool pocca = NodeTraits::propagate_on_container_copy_assignment::value;
+	  if constexpr(pocca) {
+		if (node_allocator_ != other.node_allocator_) {
+		  Clear();
+		}
+		node_allocator_ = other.node_allocator_;
+	  }
+	  Clear();
+	  auto node = other.head_;
+	  while (node) {
+		EmplaceFront(node->data_);
+		node = node->next_;
+	  }
+	}
+	return *this;
+  }
+
+  SimpleList &operator=(SimpleList &&other) noexcept {
+	constexpr bool pocma = NodeTraits::propagate_on_container_move_assignment::value;
+	if constexpr(pocma) {
+	  Clear();
+	  node_allocator_ = std::move(other.node_allocator_);
+	  head_ = std::exchange(other.head_, nullptr);
+	} else if constexpr (NodeTraits::is_always_equal::value || node_allocator_ == other.node_allocator_) {
+	  Clear();
+	  head_ = std::exchange(other.head_, nullptr);
+	} else {
+	  auto node = other.head_;
+	  while (node) {
+		EmplaceFront(std::move(node->data_));
+		node = node->next_;
+	  }
+	}
+
+	return *this;
+  }
+
+  void swap(SimpleList &other) noexcept {
+	constexpr bool pocs = NodeTraits::propagate_on_container_swap::value;
+	if (this != std::addressof(other)) {
+	  if constexpr(pocs) {
+		std::swap(head_, other.head_);
+		std::swap(node_allocator_, other.node_allocator_);
+	  } else if constexpr (NodeTraits::is_always_equal::value || node_allocator_ == other.node_allocator_) {
+		std::swap(head_, other.head_);
+	  } else {
+		auto temp = std::move(*this);
+		*this = std::move(other);
+		other = std::move(temp);
+	  }
+	}
+  }
+
   ~SimpleList() {
 	Clear();
   }
