@@ -72,13 +72,7 @@ class SimpleList {
 
   SimpleList() = default;
   ~SimpleList() {
-	while (head_) {
-	  auto node = head_;
-	  head_ = head_->next_;
-
-	  NodeTraits::destroy(node_allocator_, node);
-	  NodeTraits::deallocate(node_allocator_, node, 1);
-	}
+	Clear();
   }
 
   size_type Size() const {
@@ -95,7 +89,7 @@ class SimpleList {
   }
 
   template<typename... Args>
-  void Emplace(Args... args) {
+  void EmplaceFront(Args... args) {
 	auto node = NodeTraits::allocate(node_allocator_, 1);
 	NodeTraits::construct(node_allocator_, node, std::forward<Args>(args)...);
 
@@ -115,8 +109,17 @@ class SimpleList {
   using NodeAllocator = typename std::allocator_traits<Allocator>::template rebind_alloc<Node<T>>;
   using NodeTraits = std::allocator_traits<NodeAllocator>;
 
-  NodeAllocator node_allocator_;
+  void Clear() {
+	while (head_) {
+	  auto node = head_;
+	  head_ = head_->next_;
 
+	  NodeTraits::destroy(node_allocator_, node);
+	  NodeTraits::deallocate(node_allocator_, node, 1);
+	}
+  }
+
+  NodeAllocator node_allocator_;
   Node<T> *head_{nullptr};
   size_type size_{0};
 };
