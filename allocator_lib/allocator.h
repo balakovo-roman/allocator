@@ -14,7 +14,7 @@ class CustomAllocatorObject {
  public:
   void *allocate(size_type size) {
 	if (auto ptr = malloc(size)) {
-	  std::cout << this << " allocate " << ptr << '\n';
+	  std::cout << this << " allocate [" << ptr << "]\n";
 	  return ptr;
 	}
 
@@ -22,7 +22,7 @@ class CustomAllocatorObject {
   }
 
   void deallocate(void *ptr) {
-	std::cout << this << " deallocate " << ptr << '\n';
+	std::cout << this << " deallocate [" << ptr << "]\n";
 	free(ptr);
   }
 };
@@ -38,24 +38,24 @@ class Pool {
 
   void *allocate() {
 	if (m_addrs_.empty()) {
-	  std::cout << this << " allocate: address pool is empty" << '\n';
+	  std::cout << this << " address pool is empty" << '\n';
 	  add_addrs();
 	}
 
-	std::cout << this << " allocate: address pool isn't empty" << '\n';
+	std::cout << this << " address pool isn't empty" << '\n';
 
 	auto ptr = m_addrs_.top();
 	m_addrs_.pop();
 
-	std::cout << this << " allocate: return free pointer: " << ptr << '\n';
+	std::cout << this << " return free pointer [" << ptr << "]\n";
 
-	std::cout << this << " allocate: remain [" << m_addrs_.size() << "]" << '\n';
+	std::cout << this << " remain memory for [" << m_addrs_.size() << "] object(s)" << '\n';
 
 	return ptr;
   }
 
   void deallocate(void *ptr) {
-	std::cout << this << " deallocate: push unnecessary pointer back to memory pool: " << ptr << '\n';
+	std::cout << this << " push unnecessary pointer back to memory pool [" << ptr << "]\n";
 	m_addrs_.push(ptr);
   }
 
@@ -65,7 +65,7 @@ class Pool {
 	  abort();
 	}
 
-	std::cout << this << " rebind: old size: " << m_size_ << " now equal new size: " << size << '\n';
+	std::cout << this << " rebind old object size [" << m_size_ << "] to new object size [" << size << "]\n";
 
 	m_size_ = size;
   }
@@ -77,21 +77,17 @@ class Pool {
 
 	auto v = std::span<uint8_t>(block.get(), block_size);
 
-	std::cout << this << " add_addrs: allocate new memory blocks, block_size: " << v.size() << '\n';
-
-	std::cout << this << " add_addrs: pointer to block of the memory: " << (void*)v.data() << '\n';
+	std::cout << this << " allocate new memory blocks [" << v.size() << "]\n";
 
 	auto total_size = v.size() % m_size_ == 0 ? v.size() : v.size() - m_size_;
 
-	std::cout << this << " add_addrs: total bytes allocated: " << total_size << '\n';
+	std::cout << this << " total bytes allocated [" << total_size << "]\n";
 
 	for (auto i = 0ul; i < total_size; i += m_size_) {
 	  m_addrs_.push(&v[i]);
 	}
 
 	m_blocks_.push(std::move(block));
-
-	std::cout << this << " add_addrs: move block to memory pool " << (void*)&m_blocks_.top() << '\n';
   }
 
  private:
@@ -123,62 +119,50 @@ class CustomAllocator {
 
  public:
   CustomAllocator() : m_pool_{std::make_shared<Pool<Count>>(sizeof(T))} {
-	std::cout << this << " " << __PRETTY_FUNCTION__ << " " << std::endl;
-	std::cout << this << " constructor, sizeof(T): " << sizeof(T) << '\n';
+	std::cout << this << " default constructor, sizeof(T) [" << sizeof(T) << "]\n";
   }
 
   template<typename U>
   CustomAllocator(const CustomAllocator<U, Count> &other) noexcept : m_pool_{other.m_pool_} {
-	std::cout << this << " " << __PRETTY_FUNCTION__ << " " << std::endl;
-	std::cout << this << " copy constructor (U), sizeof(T): " << sizeof(T) << '\n';
+	std::cout << this << " copy constructor (U), sizeof(T) [" << sizeof(T) << "]\n";
 	m_pool_->rebind(sizeof(T));
   }
 
   CustomAllocator(CustomAllocator &&other) noexcept: m_pool_{std::move(other.m_pool_)} {
-	std::cout << this << " " << __PRETTY_FUNCTION__ << " " << std::endl;
-	std::cout << this << " move constructor, sizeof(T): " << sizeof(T) << '\n';
+	std::cout << this << " move constructor, sizeof(T) [" << sizeof(T) << "]\n";
   }
 
   CustomAllocator &operator=(CustomAllocator &&other) noexcept {
-	std::cout << this << " " << __PRETTY_FUNCTION__ << " " << std::endl;
-	std::cout << this << " move assignment, sizeof(T): " << sizeof(T) << '\n';
+	std::cout << this << " move assignment, sizeof(T) [" << sizeof(T) << "]\n";
 	m_pool_ = std::move(other.m_pool_);
 	return *this;
   }
 
   CustomAllocator(const CustomAllocator &other) noexcept: m_pool_{other.m_pool_} {
-	std::cout << this << " " << __PRETTY_FUNCTION__ << " " << std::endl;
-	std::cout << this << " copy constructor, sizeof(T): " << sizeof(T) << '\n';
+	std::cout << this << " copy constructor, sizeof(T) [" << sizeof(T) << "]\n";
   }
 
   CustomAllocator &operator=(const CustomAllocator &other) noexcept {
-	std::cout << this << " " << __PRETTY_FUNCTION__ << " " << std::endl;
 	if (this != &other) {
-	  std::cout << this << " copy assignment, sizeof(T): " << sizeof(T) << '\n';
+	  std::cout << this << " copy assignment, sizeof(T) [" << sizeof(T) << "]\n";
 	  m_pool_ = other.m_pool_;
 	}
 	return *this;
   }
 
   pointer allocate(size_type n) {
-	std::cout << this << " " << __PRETTY_FUNCTION__ << " " << std::endl;
-	std::cout << this << " allocate: n: " << n << '\n';
+	std::cout << this << " allocate [" << n << "] object(s)\n";
 	if (n != 1) {
-	  std::cout << this << " allocate: n != 1, allocate sizeof(T) * n: " << sizeof(T) * n << '\n';
 	  return static_cast<pointer>(malloc(sizeof(T) * n));
 	}
-	std::cout << this << " allocate: n == 1, use memory pool" << '\n';
 	return static_cast<pointer>(m_pool_->allocate());
   }
 
   void deallocate(pointer ptr, size_type n) {
-	std::cout << this << " " << __PRETTY_FUNCTION__ << " " << std::endl;
-	std::cout << this << " deallocate: ptr: " << ptr << ", n:" << n << '\n';
+	std::cout << this << " deallocate [" << n << "] object(s), pointer [" << ptr << "\n";
 	if (n != 1) {
-	  std::cout << this << " deallocate: n != 1, use free" << '\n';
 	  free(ptr);
 	}
-	std::cout << this << " deallocate: n == 1, use memory pool" << '\n';
 	m_pool_->deallocate(ptr);
   }
 
@@ -198,13 +182,11 @@ class CustomAllocator {
 
 template<typename T1, typename T2, std::size_t Count>
 bool operator==(const CustomAllocator<T1, Count> &lhs, const CustomAllocator<T2, Count> &rhs) {
-  std::cout << " " << __PRETTY_FUNCTION__ << " " << std::endl;
   return lhs.m_pool_ == rhs.m_pool_;
 }
 
 template<typename T1, typename T2, std::size_t Count>
 bool operator!=(const CustomAllocator<T1, Count> &lhs, const CustomAllocator<T2, Count> &rhs) {
-  std::cout << " " << __PRETTY_FUNCTION__ << " " << std::endl;
   return lhs.m_pool_ != rhs.m_pool_;
 }
 
